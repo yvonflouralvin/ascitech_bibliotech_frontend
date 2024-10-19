@@ -1,0 +1,37 @@
+{
+  "name": "bibliotech-windows",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@nextui-org/react": "^2.4.6",
+    "@reduxjs/toolkit": "^2.2.6",
+    "axios": "^1.7.2",
+    "flowbite": "^2.4.1",
+    "flowbite-react": "^0.10.1",
+    "framer-motion": "^11.3.17",
+    "lucide-react": "^0.416.0",
+    "next": "^14.2.5",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-multi-carousel": "^2.8.5",
+    "react-redux": "^9.1.2"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.6.0",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}

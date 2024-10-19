@@ -1,0 +1,14 @@
+version: '4'
+services:
+  ascitech_bibliotech:
+    image: node:20
+    container_name: ascitech_bibliotech
+    ports:
+      - "93:3000"
+    working_dir: /app
+    volumes:
+      - ./app:/app/
+    env_file:
+      - ./.env
+    command: >
+      bash -c "yarn build && yarn start"
