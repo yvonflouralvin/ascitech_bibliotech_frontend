@@ -17,6 +17,23 @@ services:
     restart: always
     networks:
       - dokploy-network
+    
+    labels: 
+      - "traefik.enable=true"
+
+      # Router
+      - "traefik.http.routers.bibliotech_ascitech_cd.rule=Host(`bibliotech.cd`)"
+      - "traefik.http.routers.bibliotech_ascitech_cd.entrypoints=websecure"
+      - "traefik.http.routers.bibliotech_ascitech_cd.tls=true"
+      - "traefik.http.routers.bibliotech_ascitech_cd.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.bibliotech_ascitech_cd.priority=100"
+
+      # Service
+      - "traefik.http.services.bibliotech_ascitech_cd.loadbalancer.server.port=3000"
+
+      # Auth Basic optionnel (recommandé)
+      #- "traefik.http.routers.bibliotech_ascitech_cd.middlewares=bibliotech_ascitech_cd-auth"
+      #- "traefik.http.middlewares.bibliotech_ascitech_cd-auth.basicauth.users=admin:$$apr1$$xxxxxxxxxxxx"
 
 networks:
   dokploy-network:
