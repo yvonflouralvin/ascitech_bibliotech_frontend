@@ -19,7 +19,7 @@ const Login = () => {
         if (username === "") return;
         if (password === "") return;
 
-        login({ username, password })
+        login({ email:username, password })
             .then(result => {
                 window.location.href = "/";
             })

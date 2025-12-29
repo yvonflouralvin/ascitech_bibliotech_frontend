@@ -36,7 +36,7 @@ const useBookPage = ()=>{
             ])
             if(storedPage !== undefined)return Promise.resolve(storedPage);
             console.log("Page for : ", bookId, " / ", pageId, "not found");
-            const load_online: BookPage = (await api(cookies).get(`/ascitech_bibliotech/books/${bookId}/page/${pageId}/`)).data;
+            const load_online: BookPage = (await api(cookies).get(`/books/${bookId}/page/${pageId}/`)).data;
             if(db)await storePage(load_online); // store the fetched page in IndexedDB for offline usage
             return Promise.resolve(load_online);
         }catch(e){

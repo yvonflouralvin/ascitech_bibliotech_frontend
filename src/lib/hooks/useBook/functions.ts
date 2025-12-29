@@ -6,7 +6,7 @@ import cookies from "@/lib/shared/cookies";
 
 async function loadBooks(): Promise<Book[]> {
     try {
-        const books = (await api(cookies).get(`/ascitech_bibliotech/books/all-books/`)).data;
+        const books = (await api(cookies).get(`/books/`)).data;
         return Promise.resolve(books)
     } catch (e) {
         console.error('Error loading books:', e);

@@ -6,7 +6,7 @@ import { AuthentificationTokens, LoginForm } from "@/lib/data/interfaces";
 async function login(arg: LoginForm): Promise<AuthentificationTokens> {
    
     try {
-        const result: AuthentificationTokens = (await api(cookies).post(`/auth/login/`, arg)).data;
+        const result: AuthentificationTokens = (await api(cookies).post(`/auth/`, arg)).data;
         
         return Promise.resolve(result)
     } catch (e) {

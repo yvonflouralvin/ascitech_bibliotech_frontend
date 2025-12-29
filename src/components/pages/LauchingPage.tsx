@@ -34,7 +34,7 @@ export default function LauchingPage() {
                 <div className='flex-1 overflow-y-scroll'>
                     <BookCategoriesWidget />
                     <div className='px-[20px] mt-[5px]'>
-                        <p className='font-bold text-[20px]'>Tout les livres</p>
+                        <p className='font-bold text-[20px]'>Tous les livres</p>
                     </div>
                     <AllBookList filtre={searchKeyWord} selectedBook={selectedBook} setSelectedBook={setSelectedBook} />
                 </div>
