@@ -13,7 +13,7 @@ services:
     env_file:
       - ./.env
     command: >
-      bash -c "yarn build && yarn start"
+      bash -c "yarn install && yarn build && yarn start"
     restart: always
     networks:
       - dokploy-network
