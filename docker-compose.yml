@@ -1,0 +1,23 @@
+version: '3'
+services:
+  bibliotech_ascitech_cd:
+    image: node:20
+    container_name: bibliotech_ascitech_cd
+    # ports:
+    #   - "93:3000"
+    expose:
+      - 3000
+    working_dir: /app
+    volumes:
+      - ./:/app/
+    env_file:
+      - ./.env
+    command: >
+      bash -c "yarn build && yarn start"
+    restart: always
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
