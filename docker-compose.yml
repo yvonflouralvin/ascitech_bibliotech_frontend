@@ -22,7 +22,7 @@ services:
       - "traefik.enable=true"
 
       # Router
-      - "traefik.http.routers.bibliotech_ascitech_cd.rule=Host(`bibliotech.cd`) && (!PathPrefix(`/admin`) || !PathPrefix(`/static`))"
+      - "traefik.http.routers.bibliotech_ascitech_cd.rule=Host(`bibliotech.cd`) && !PathPrefix(`/admin`) && !PathPrefix(`/static`)"
       - "traefik.http.routers.bibliotech_ascitech_cd.entrypoints=websecure"
       - "traefik.http.routers.bibliotech_ascitech_cd.tls=true"
       - "traefik.http.routers.bibliotech_ascitech_cd.tls.certresolver=letsencrypt"
