@@ -194,6 +194,7 @@ interface BookShowProps {
 }
 const BookShow = (props: BookShowProps) => {
     const [currentPage, setCurrentPage] = useState<number>(1);
+     const [location, setLocation] = useState<string | number>(0)
 
     return <div className='w-full'>
         {
