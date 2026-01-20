@@ -220,8 +220,9 @@ const BookShow = (props: BookShowProps) => {
         {
             props.book.book_format == "epub" && <>
                 <div style={{ height: '100vh' }}>
+                    <Button type='reset' onClick={props.close}>Fermer</Button>
                     <ReactReader
-                        url="https://react-reader.metabits.no/files/alice.epub"
+                        url={props.book.book_file_path}
                         location={location}
                         locationChanged={(epubcfi: string) => setLocation(epubcfi)}
                     />

@@ -7,6 +7,7 @@ export class Book {
     slug!: string
     page!: number
     book_format!: "pdf" | "epub"
+    book_file_path!: string
 }
 
 export interface BookPage {
