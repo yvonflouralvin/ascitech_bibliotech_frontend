@@ -222,7 +222,7 @@ const BookShow = (props: BookShowProps) => {
                 <div style={{ height: '100vh' }}>
                     <Button type='reset' onClick={props.close}>Fermer</Button>
                     <ReactReader
-                        url={"https://api.bibliotech.cd/api/apps/books/"+props.book.id+"/download/"}
+                        url={props.book.book_file_path}
                         location={location}
                         locationChanged={(epubcfi: string) => setLocation(epubcfi)}
                     />
