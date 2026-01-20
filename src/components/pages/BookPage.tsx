@@ -11,6 +11,7 @@ import useBook from '@/lib/hooks/useBook'
 import useBookPage from '@/lib/hooks/useBookPage'
 import { ArrowLeft, CornerUpLeftIcon, DownloadIcon, HeartIcon, HeartOff } from 'lucide-react'
 import useFavori from '@/lib/hooks/useFavori'
+import { ReactReader } from 'react-reader'
 
 interface BookPageProps {
     book?: Book
@@ -76,24 +77,6 @@ export default function BookPageLayout(props: BookPageProps) {
             setCover('https://via.placeholder.com/200x200'); // default cover image
         }
     }
-
-    // const loadingBook = async () => {
-    //     try {
-    //         const bookId = localStorage.getItem("book-to-show")
-    //         if (bookId === undefined || bookId === null) {
-    //             console.log("Book not found");
-    //             return;
-    //         };
-
-    //         const _book: Book | undefined = await getBook(bookId);
-    //         setBook(_book);
-    //     } catch (e) {
-
-    //     }
-    // }
-    // useEffect(() => {
-    //     if (db) loadingBook();
-    // }, [db])
 
     useEffect(() => {
         if (book !== undefined) {
@@ -213,22 +196,37 @@ const BookShow = (props: BookShowProps) => {
     const [currentPage, setCurrentPage] = useState<number>(1);
 
     return <div className='w-full'>
-        <div className='flex items-center w-full'>
-            <div className='p-[10px] text-[12px] flex items-center gap-[10px]'>
-                {
-                    currentPage > 1 && <Button onClick={() => setCurrentPage(currentPage - 1)}>Précédent</Button>
-                }
-                <p>{currentPage} sur {props.book.page}</p>
-                {
-                    currentPage < (props.book.page) && <Button onClick={() => setCurrentPage(currentPage + 1)}>Suivant</Button>
-                }
+        {
+            props.book.book_format == "pdf" && <>
+                <div className='flex items-center w-full'>
+                    <div className='p-[10px] text-[12px] flex items-center gap-[10px]'>
+                        {
+                            currentPage > 1 && <Button onClick={() => setCurrentPage(currentPage - 1)}>Précédent</Button>
+                        }
+                        <p>{currentPage} sur {props.book.page}</p>
+                        {
+                            currentPage < (props.book.page) && <Button onClick={() => setCurrentPage(currentPage + 1)}>Suivant</Button>
+                        }
 
-            </div>
-            <div className='flex-1 flex items-center justify-end'>
-                <Button type='reset' onClick={props.close}>Fermer</Button>
-            </div>
-        </div>
-        <BookShowPage pageNumber={currentPage} book={props.book} db={props.db} getPage={props.getPage} />
+                    </div>
+                    <div className='flex-1 flex items-center justify-end'>
+                        <Button type='reset' onClick={props.close}>Fermer</Button>
+                    </div>
+                </div>
+                <BookShowPage pageNumber={currentPage} book={props.book} db={props.db} getPage={props.getPage} />
+            </>
+        }
+        {
+            props.book.book_format == "epub" && <>
+                <div style={{ height: '100vh' }}>
+                    <ReactReader
+                        url="https://react-reader.metabits.no/files/alice.epub"
+                        location={location}
+                        locationChanged={(epubcfi: string) => setLocation(epubcfi)}
+                    />
+                </div>
+            </>
+        }
 
     </div>
 }

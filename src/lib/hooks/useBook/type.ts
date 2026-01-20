@@ -6,6 +6,7 @@ export class Book {
     categories!: string []
     slug!: string
     page!: number
+    book_format!: "pdf" | "epub"
 }
 
 export interface BookPage {
