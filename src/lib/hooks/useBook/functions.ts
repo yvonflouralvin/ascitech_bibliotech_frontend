@@ -1,19 +1,19 @@
-import fixtures from "@/lib/data/fixtures";
-import { Book } from "./type";
 import api from "@/lib/network/api";
 import cookies from "@/lib/shared/cookies";
 
+import { Book } from "./type";
 
+/** Catalogue accessible a l'utilisateur connecte. */
 async function loadBooks(): Promise<Book[]> {
-    try {
-        const books = (await api(cookies).get(`/books/`)).data;
-        return Promise.resolve(books)
-    } catch (e) {
-        console.error('Error loading books:', e);
-        return Promise.resolve([]);
-    }
+    const response = await api(cookies).get(`/books/`);
+    const payload = response.data;
+
+    // L'API peut renvoyer une liste simple ou une reponse paginee.
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
 }
 
-export default {
-    loadBooks
-}
+const functions = { loadBooks };
+
+export default functions;

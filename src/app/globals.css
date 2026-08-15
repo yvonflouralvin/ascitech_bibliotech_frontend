@@ -2,23 +2,189 @@
 @tailwind components;
 @tailwind utilities;
 
-/* width */
-::-webkit-scrollbar {
-    width: 2px;
-    height: 0px;
-  }
-  
-  /* Track */
-  ::-webkit-scrollbar-track {
-    background: #f1f1f1;
-  }
-  
-  /* Handle */
-  ::-webkit-scrollbar-thumb {
-    background: #888;
-  }
-  
-  /* Handle on hover */
-  ::-webkit-scrollbar-thumb:hover {
-    background: #555;
-  }
+@layer base {
+    :root {
+        --color-canvas: 247 247 245;
+        --color-surface: 255 255 255;
+        --color-surface-muted: 242 242 240;
+        --color-surface-raised: 255 255 255;
+        --color-line: 228 228 224;
+
+        --color-ink: 24 26 29;
+        --color-ink-muted: 92 99 108;
+        --color-ink-subtle: 138 145 153;
+
+        --color-primary: 0 124 153;
+        --color-primary-strong: 0 96 120;
+        --color-primary-soft: 226 246 252;
+        --color-primary-foreground: 255 255 255;
+
+        --color-accent: 214 122 24;
+        --color-accent-soft: 253 240 222;
+
+        --color-danger: 200 54 62;
+        --color-danger-soft: 253 232 233;
+
+        --color-success: 22 128 92;
+        --color-success-soft: 224 246 238;
+
+        --reader-backdrop: 236 236 233;
+    }
+
+    .dark {
+        --color-canvas: 12 15 18;
+        --color-surface: 22 26 31;
+        --color-surface-muted: 30 35 41;
+        --color-surface-raised: 27 32 38;
+        --color-line: 47 54 62;
+
+        --color-ink: 235 238 241;
+        --color-ink-muted: 158 167 177;
+        --color-ink-subtle: 120 129 139;
+
+        --color-primary: 56 189 218;
+        --color-primary-strong: 125 211 231;
+        --color-primary-soft: 12 48 58;
+        --color-primary-foreground: 8 20 25;
+
+        --color-accent: 240 173 78;
+        --color-accent-soft: 58 42 18;
+
+        --color-danger: 248 113 113;
+        --color-danger-soft: 60 26 28;
+
+        --color-success: 52 190 143;
+        --color-success-soft: 12 48 38;
+
+        --reader-backdrop: 10 12 15;
+    }
+
+    * {
+        border-color: rgb(var(--color-line));
+    }
+
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        background-color: rgb(var(--color-canvas));
+        color: rgb(var(--color-ink));
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Le basculement de theme ne doit pas animer toute la page a chaque frame. */
+    body,
+    .theme-surface {
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    :focus-visible {
+        outline: 2px solid rgb(var(--color-primary));
+        outline-offset: 2px;
+        border-radius: 0.35rem;
+    }
+
+    ::selection {
+        background-color: rgb(var(--color-primary) / 0.2);
+    }
+}
+
+@layer components {
+    /* Barre de defilement discrete mais saisissable (l'ancienne faisait 2px). */
+    .scroll-area {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--color-ink-subtle) / 0.45) transparent;
+    }
+
+    .scroll-area::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    .scroll-area::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .scroll-area::-webkit-scrollbar-thumb {
+        background-color: rgb(var(--color-ink-subtle) / 0.35);
+        border-radius: 999px;
+        border: 3px solid transparent;
+        background-clip: content-box;
+    }
+
+    .scroll-area::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(var(--color-ink-subtle) / 0.6);
+        background-clip: content-box;
+    }
+
+    /* Effet de balayage des squelettes de chargement. */
+    .skeleton {
+        position: relative;
+        overflow: hidden;
+        background-color: rgb(var(--color-surface-muted));
+    }
+
+    .skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background-image: linear-gradient(
+            90deg,
+            transparent,
+            rgb(var(--color-surface) / 0.65),
+            transparent
+        );
+        animation: shimmer 1.6s infinite;
+    }
+
+    /* Reliure discrete sur le bord gauche des couvertures. */
+    .book-spine::before {
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        left: 0;
+        width: 7px;
+        background: linear-gradient(
+            90deg,
+            rgb(0 0 0 / 0.28),
+            rgb(0 0 0 / 0.06) 55%,
+            rgb(255 255 255 / 0.16)
+        );
+        z-index: 2;
+    }
+
+    .reader-surface {
+        background-color: rgb(var(--reader-backdrop));
+    }
+}
+
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+}
+
+/* Respect du reglage systeme « animations reduites ». */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

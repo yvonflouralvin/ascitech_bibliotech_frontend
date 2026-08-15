@@ -1,25 +1,59 @@
+export type BookFormat = 'pdf' | 'epub' | 'audiobook' | 'paper' | string;
+export type PublishState = 'draft' | 'published' | 'archived' | string;
 
-export class Book {
-    id!: string
-    title!: string
-    description!: string
-    categories!: string []
-    slug!: string
-    page!: number
-    book_format!: "pdf" | "epub"
-    book_file_path!: string
+/** Metadonnees d'un livre, telles que renvoyees par `GET /apps/books/`. */
+export interface Book {
+    id: string;
+    title: string;
+    author: string | null;
+    description: string | null;
+    slug: string;
+    publish_state: PublishState;
+    publication_date: string | null;
+    page: number;
+    book_format: BookFormat;
+    /**
+     * URL publique du fichier source (EPUB). Renseignee uniquement pour les
+     * livres distribues sous forme de fichier ; les livres pagines en images
+     * n'en ont pas.
+     */
+    book_file_path?: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
+/** Un EPUB se lit depuis son fichier, pas depuis des images de pages. */
+export const isEpub = (book: Pick<Book, 'book_format' | 'book_file_path'>): boolean =>
+    book.book_format === 'epub' && Boolean(book.book_file_path);
+
+/** Page d'un livre : une image encodee en base64. */
 export interface BookPage {
-    id: string
-    title: string
-    content: string
-    order: number
-    book: string
+    id: string;
+    title: string;
+    content: string;
+    order: number;
+    book: string;
+    /** Type MIME de l'image ; les enregistrements anterieurs n'en ont pas. */
+    mime?: string;
 }
 
-export interface BookCategory {
-    id: string
-    label: string
-    description?: string
+/**
+ * Couverture d'un livre. `available: false` memorise qu'aucun fichier n'existe
+ * cote serveur, ce qui evite de redemander la couverture a chaque affichage.
+ */
+export interface BookCover {
+    id: string;
+    book: string;
+    title: string;
+    available: boolean;
+    content: string | null;
+    mime: string | null;
+}
+
+/** Disponibilite reelle du contenu d'un livre sur le serveur. */
+export interface BookAvailability {
+    book: string;
+    declared_pages: number;
+    available_pages: number;
+    has_content: boolean;
 }

@@ -1,16 +1,15 @@
-'use client' 
-import { store } from '@/lib/shared/store'
-import { NextUIProvider } from '@nextui-org/react'
-import React from 'react'
-import { Provider } from 'react-redux'
+'use client';
 
-interface AppProviders {
-    children: React.ReactNode
-}
-export default function AppProviders(props: AppProviders) {
-    return <NextUIProvider>
-        <Provider store={store}>
-            {props.children}
-        </Provider>
-    </NextUIProvider>
+import React from 'react';
+import { Provider } from 'react-redux';
+
+import { ThemeProvider } from '@/lib/hooks/useTheme';
+import { store } from '@/lib/shared/store';
+
+export default function AppProviders({ children }: { children: React.ReactNode }) {
+    return (
+        <ThemeProvider>
+            <Provider store={store}>{children}</Provider>
+        </ThemeProvider>
+    );
 }
