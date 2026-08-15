@@ -137,6 +137,8 @@ export default function BookCover({
         if (!shouldLoad || settled) return;
         let cancelled = false;
 
+        // Le serveur decide : `available: false` (champ « page de couverture »
+        // regle sur 0 dans l'administration) donne une couverture generee.
         getCover(book.id, width)
             .then((cover) => {
                 if (cancelled) return;
