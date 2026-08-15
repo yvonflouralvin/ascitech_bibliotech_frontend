@@ -5,10 +5,16 @@ import { useCallback, useEffect, useState } from 'react';
 const DB_NAME = 'AscitechBibliotech';
 /**
  * v3 : ajout du magasin `covers` et d'un index `book` sur `bookpages`.
- * L'index evite de charger toutes les pages (des images base64) en memoire
- * juste pour compter celles qui sont deja telechargees.
+ * v4 : purge des couvertures. Les livres issus d'un EPUB commencaient par des
+ *      pages blanches, servies puis mises en cache comme couverture ; il faut
+ *      les redemander pour obtenir la premiere page reellement lisible.
  */
-const DB_VERSION = 3;
+const DB_VERSION = 4;
+
+/** Magasins vides lors d'une montee de version, avec la version concernee. */
+const STORES_TO_CLEAR: { store: ObjectStore; upTo: number }[] = [
+    { store: 'covers', upTo: 4 },
+];
 
 export type ObjectStore = 'books' | 'configs' | 'bookpages' | 'booksfavorites' | 'covers';
 
@@ -45,13 +51,16 @@ const openDatabase = (): Promise<IDBDatabase> => {
 
         const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onupgradeneeded = () => {
+        request.onupgradeneeded = (event) => {
             const db = request.result;
             const transaction = request.transaction;
             if (!transaction) return;
 
+            const previousVersion = event.oldVersion;
+
             OBJECT_STORES.forEach((name) => {
-                const store = db.objectStoreNames.contains(name)
+                const existed = db.objectStoreNames.contains(name);
+                const store = existed
                     ? transaction.objectStore(name)
                     : db.createObjectStore(name, { keyPath: 'id' });
 
@@ -60,6 +69,13 @@ const openDatabase = (): Promise<IDBDatabase> => {
                         store.createIndex(indexName, keyPath, { unique: false });
                     }
                 });
+
+                // Purge ciblee : uniquement les donnees devenues invalides, et
+                // jamais les pages telechargees ni les favoris de l'eleve.
+                const rule = STORES_TO_CLEAR.find((item) => item.store === name);
+                if (existed && rule && previousVersion < rule.upTo) {
+                    store.clear();
+                }
             });
         };
 
