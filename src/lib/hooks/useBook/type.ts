@@ -12,9 +12,19 @@ export interface Book {
     publication_date: string | null;
     page: number;
     book_format: BookFormat;
+    /**
+     * URL publique du fichier source (EPUB). Renseignee uniquement pour les
+     * livres distribues sous forme de fichier ; les livres pagines en images
+     * n'en ont pas.
+     */
+    book_file_path?: string | null;
     created_at: string;
     updated_at: string;
 }
+
+/** Un EPUB se lit depuis son fichier, pas depuis des images de pages. */
+export const isEpub = (book: Pick<Book, 'book_format' | 'book_file_path'>): boolean =>
+    book.book_format === 'epub' && Boolean(book.book_file_path);
 
 /** Page d'un livre : une image encodee en base64. */
 export interface BookPage {

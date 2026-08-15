@@ -17,12 +17,13 @@ import {
 
 import Button from '@/components/ui/Button';
 import IconButton from '@/components/ui/IconButton';
-import { Book, BookAvailability, BookPage } from '@/lib/hooks/useBook/type';
+import { Book, BookAvailability, BookPage, isEpub } from '@/lib/hooks/useBook/type';
 import { COVER_DETAIL_WIDTH } from '@/lib/hooks/useBookPage';
 import cn from '@/lib/ui/cn';
 
 import BookCover, { GetCover } from './BookCover';
 import BookReader from './BookReader';
+import EpubReader from './EpubReader';
 
 interface BookDetailsProps {
     book: Book;
@@ -66,13 +67,23 @@ export default function BookDetails({
     // Permet d'interrompre un telechargement en cours (fermeture, annulation).
     const cancelRef = useRef(false);
 
+    /**
+     * Un EPUB est lu depuis son fichier : il n'a ni images de pages, ni
+     * telechargement page par page. L'absence de contenu pagine est donc
+     * normale et ne doit pas empecher la lecture.
+     */
+    const epub = isEpub(book);
+
     /** Nombre de pages a considerer : ce que le serveur possede vraiment. */
     const totalPages = availability?.available_pages ?? book.page;
     const isComplete = downloaded > 0 && downloaded >= totalPages;
-    const hasNoContent = availability?.has_content === false;
+    const hasNoContent = !epub && availability?.has_content === false;
 
     useEffect(() => {
         let cancelled = false;
+
+        // Sans pagination en images, ces deux appels n'ont pas d'objet.
+        if (epub) return undefined;
 
         countDownloadedPages(book.id).then((count) => {
             if (!cancelled) setDownloaded(count);
@@ -86,7 +97,7 @@ export default function BookDetails({
             cancelled = true;
             cancelRef.current = true;
         };
-    }, [book.id, countDownloadedPages, getAvailability]);
+    }, [book.id, epub, countDownloadedPages, getAvailability]);
 
     // Fermeture au clavier.
     useEffect(() => {
@@ -138,7 +149,11 @@ export default function BookDetails({
                     icon: <FileTextIcon size={13} />,
                     label: FORMAT_LABELS[book.book_format] ?? book.book_format,
                 },
-                { icon: <LayersIcon size={13} />, label: `${book.page} pages` },
+                // Un EPUB n'expose pas de nombre de pages fiable : la pagination
+                // depend de la taille de l'ecran et du corps de texte.
+                epub || book.page <= 0
+                    ? null
+                    : { icon: <LayersIcon size={13} />, label: `${book.page} pages` },
                 downloaded > 0
                     ? {
                           icon: isComplete ? <CheckCircle2Icon size={13} /> : <DownloadIcon size={13} />,
@@ -149,7 +164,7 @@ export default function BookDetails({
                       }
                     : null,
             ].filter(Boolean) as { icon: React.ReactNode; label: string; highlight?: boolean }[],
-        [book.book_format, book.page, downloaded, isComplete, totalPages],
+        [book.book_format, book.page, epub, downloaded, isComplete, totalPages],
     );
 
     const isDownloading = downloadProgress !== undefined;
@@ -314,7 +329,8 @@ export default function BookDetails({
                                 Lire le livre
                             </Button>
 
-                            {!isComplete && !hasNoContent && (
+                            {/* Le telechargement page par page ne concerne pas les EPUB. */}
+                            {!epub && !isComplete && !hasNoContent && (
                                 <Button
                                     variant="secondary"
                                     size="md"
@@ -361,19 +377,24 @@ export default function BookDetails({
             </motion.div>
 
             <AnimatePresence>
-                {isReading && (
-                    <BookReader
-                        book={{ ...book, page: totalPages }}
-                        getPage={getPage}
-                        onClose={() => {
-                            setIsReading(false);
-                            countDownloadedPages(book.id).then((count) => {
-                                setDownloaded(count);
-                                onDownloadsChanged?.(book.id, count);
-                            });
-                        }}
-                    />
-                )}
+                {isReading &&
+                    // Un EPUB se lit depuis son fichier ; les autres formats sont
+                    // pagines en images cote serveur.
+                    (epub ? (
+                        <EpubReader book={book} onClose={() => setIsReading(false)} />
+                    ) : (
+                        <BookReader
+                            book={{ ...book, page: totalPages }}
+                            getPage={getPage}
+                            onClose={() => {
+                                setIsReading(false);
+                                countDownloadedPages(book.id).then((count) => {
+                                    setDownloaded(count);
+                                    onDownloadsChanged?.(book.id, count);
+                                });
+                            }}
+                        />
+                    ))}
             </AnimatePresence>
         </>
     );
