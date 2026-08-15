@@ -1,178 +1,260 @@
-import { useState, useEffect, useCallback } from 'react';
+'use client';
 
-// Nom de la base de données et version
+import { useCallback, useEffect, useState } from 'react';
+
 const DB_NAME = 'AscitechBibliotech';
-const DB_VERSION = 2;
+/**
+ * v3 : ajout du magasin `covers` et d'un index `book` sur `bookpages`.
+ * L'index evite de charger toutes les pages (des images base64) en memoire
+ * juste pour compter celles qui sont deja telechargees.
+ */
+const DB_VERSION = 3;
 
-type ObjectStore = "books" | "configs" | "bookpages" | "booksfavorites";
-const objectStores: ObjectStore[] = [
-    "books",
-    "configs",
-    "bookpages",
-    "booksfavorites"
-]
+export type ObjectStore = 'books' | 'configs' | 'bookpages' | 'booksfavorites' | 'covers';
 
-function useIndexedDB<T>(storeName: ObjectStore) {
+const OBJECT_STORES: ObjectStore[] = [
+    'books',
+    'configs',
+    'bookpages',
+    'booksfavorites',
+    'covers',
+];
+
+/** Index secondaires a creer, par magasin. */
+const INDEXES: Partial<Record<ObjectStore, { name: string; keyPath: string }[]>> = {
+    bookpages: [{ name: 'book', keyPath: 'book' }],
+};
+
+export type Criteria = { key: string; value: any };
+
+/**
+ * Une seule connexion IndexedDB partagee par tous les hooks : ouvrir la base
+ * une fois par composant multiplie les connexions et bloque les migrations de
+ * version (evenement `versionchange` en attente).
+ */
+let connection: Promise<IDBDatabase> | null = null;
+
+const openDatabase = (): Promise<IDBDatabase> => {
+    if (connection) return connection;
+
+    connection = new Promise<IDBDatabase>((resolve, reject) => {
+        if (typeof window === 'undefined' || !window.indexedDB) {
+            reject(new Error("IndexedDB n'est pas disponible dans cet environnement."));
+            return;
+        }
+
+        const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            const transaction = request.transaction;
+            if (!transaction) return;
+
+            OBJECT_STORES.forEach((name) => {
+                const store = db.objectStoreNames.contains(name)
+                    ? transaction.objectStore(name)
+                    : db.createObjectStore(name, { keyPath: 'id' });
+
+                (INDEXES[name] ?? []).forEach(({ name: indexName, keyPath }) => {
+                    if (!store.indexNames.contains(indexName)) {
+                        store.createIndex(indexName, keyPath, { unique: false });
+                    }
+                });
+            });
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+        request.onblocked = () =>
+            reject(new Error('Mise a jour de la base locale bloquee par un autre onglet.'));
+    }).catch((error) => {
+        // Une ouverture en echec ne doit pas etre mise en cache definitivement.
+        connection = null;
+        throw error;
+    });
+
+    return connection;
+};
+
+const promisify = <T,>(request: IDBRequest<T>): Promise<T> =>
+    new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+
+function useIndexedDB<T extends { id: string }>(storeName: ObjectStore) {
     const [db, setDb] = useState<IDBDatabase | undefined>(undefined);
     const [datas, setDatas] = useState<T[]>([]);
+    const [error, setError] = useState<Error | undefined>(undefined);
 
     useEffect(() => {
-        const request: IDBOpenDBRequest = window.indexedDB.open(DB_NAME, DB_VERSION);
+        let cancelled = false;
 
-        request.onupgradeneeded = (e: IDBVersionChangeEvent) => {
-            const _db = (e.target as IDBOpenDBRequest).result;
-            setDb(_db);
-            objectStores.map(ost => {
-                if (!_db.objectStoreNames.contains(ost)) {
-                    _db.createObjectStore(ost, { keyPath: 'id' });
-                }
+        openDatabase()
+            .then((database) => {
+                if (!cancelled) setDb(database);
             })
+            .catch((e: Error) => {
+                console.error('Ouverture de la base locale impossible :', e);
+                if (!cancelled) setError(e);
+            });
 
+        return () => {
+            cancelled = true;
         };
+    }, []);
 
-        request.onsuccess = (e: Event) => {
-            const _db = (e.target as IDBOpenDBRequest).result;
-            setDb(_db);
-            try {
-                if (!_db.objectStoreNames.contains(storeName)) {
-                    _db.createObjectStore(storeName, { keyPath: 'id' });
-                }
-            } catch (e) {
+    const withStore = useCallback(
+        async <R,>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => Promise<R>): Promise<R> => {
+            const database = db ?? (await openDatabase());
+            const transaction = database.transaction([storeName], mode);
+            return run(transaction.objectStore(storeName));
+        },
+        [db, storeName],
+    );
 
+    /**
+     * Ecrit un enregistrement.
+     *
+     * N'alimente volontairement pas `datas` : le magasin `bookpages` contient
+     * des images base64, et les accumuler dans l'etat React ferait grimper la
+     * memoire a chaque page telechargee. Les listes reactives sont gerees par
+     * les hooks metier (`useBook`, `useFavori`), qui savent ce qu'ils affichent.
+     */
+    const put = useCallback(
+        async (data: T): Promise<T> => {
+            await withStore('readwrite', (store) => promisify(store.put(data)));
+            return data;
+        },
+        [withStore],
+    );
+
+    /** Ecrit un lot en une seule transaction (bien plus rapide qu'un put par element). */
+    const putMany = useCallback(
+        async (params: T[]): Promise<T[]> => {
+            if (params.length === 0) {
+                setDatas([]);
+                return params;
             }
-        };
 
-        request.onerror = (e: Event) => {
-            console.error("IndexedDB error:", (e.target as IDBRequest).error);
-        };
-
-    }, [storeName]);
-
-    const put = async (data: T) => {
-        if (db) {
-            return new Promise<T>((resolve, reject) => {
-                const transaction = db.transaction([storeName], "readwrite");
+            const database = db ?? (await openDatabase());
+            await new Promise<void>((resolve, reject) => {
+                const transaction = database.transaction([storeName], 'readwrite');
                 const store = transaction.objectStore(storeName);
-                const request = store.put(data);
-
-                request.onsuccess = () => resolve(data);
-                request.onerror = () => reject(request.error);
-                setDatas([...datas, data]);
+                params.forEach((item) => store.put(item));
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = () => reject(transaction.error);
+                transaction.onabort = () => reject(transaction.error);
             });
-        }
-        return Promise.reject({ error: "IndexedDB not initialized!" });
-    };
 
-    const get = async (id: string) => {
-        if (db) {
-            return new Promise<T | undefined>((resolve, reject) => {
-                const transaction = db.transaction([storeName], "readonly");
-                const store = transaction.objectStore(storeName);
-                const request = store.get(id);
-
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-        }
-        return Promise.reject({ error: "IndexedDB not initialized!" });
-    };
-
-    const getAll = async () => {
-        if (db) {
-            return new Promise<T[]>((resolve, reject) => {
-                const transaction = db.transaction([storeName], "readonly");
-                const store = transaction.objectStore(storeName);
-                const request = store.getAll();
-
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-        }
-        return Promise.reject({ error: "IndexedDB not initialized!" });
-    };
-
-    const deleteById = async (id: string) => {
-        if (db) {
-            return new Promise<void>((resolve, reject) => {
-                const transaction = db.transaction([storeName], "readwrite");
-                const store = transaction.objectStore(storeName);
-                const request = store.delete(id);
-
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
-        }
-        return Promise.reject({ error: "IndexedDB not initialized!" });
-    };
-
-    const putMany = async (params: T[]) => {
-        if (db) {
-            params.map(async data => await put(data));
             setDatas(params);
-        }
-        return Promise.reject({ error: "IndexedDB not initialized!" });
-    }
+            return params;
+        },
+        [db, storeName],
+    );
 
-    const selectAll = async (criteria: { key: string, value: any }[]) => {
-        if (db) {
-            return new Promise<T[]>((resolve, reject) => {
-                const transaction = db.transaction([storeName], "readonly");
-                const store = transaction.objectStore(storeName);
+    const get = useCallback(
+        async (id: string): Promise<T | undefined> => withStore('readonly', (store) => promisify<T>(store.get(id))),
+        [withStore],
+    );
 
-                let results: T[] = [];
-                const request = store.getAll();
-                request.onsuccess = ()=>{
-                    results = request.result as T[];
-                    criteria.map(cri => {
-                        results = results.filter( (res: any) => res[cri.key] == cri.value );
-                    })
-                    resolve(results);
-                }
-                request.onerror = () => reject(request.error);
-               
+    const getAll = useCallback(
+        async (): Promise<T[]> => withStore('readonly', (store) => promisify<T[]>(store.getAll())),
+        [withStore],
+    );
 
-                // const index = criteria[0].key;
-                // // store.getAll(IDBKeyRange.)
-                
-                // const request = store.index(index).getAll(IDBKeyRange.only(criteria[0].value));
+    const deleteById = useCallback(
+        async (id: string): Promise<void> => {
+            await withStore('readwrite', (store) => promisify(store.delete(id)));
+        },
+        [withStore],
+    );
 
-                // request.onsuccess = () => {
-                //     let results = request.result as T[];
-                //     criteria.slice(1).forEach(({ key, value }) => {
-                //         results = results.filter(item => (item as any)[key] === value);
-                //     });
-                //     resolve(results);
-                // };
-                // request.onerror = () => reject(request.error);
-            });
-        }
-        return Promise.resolve([]);
-    };
+    /** Compte les enregistrements via un index, sans charger leur contenu. */
+    const countByIndex = useCallback(
+        async (indexName: string, value: any): Promise<number> =>
+            withStore('readonly', (store) => {
+                if (!store.indexNames.contains(indexName)) return Promise.resolve(0);
+                return promisify(store.index(indexName).count(IDBKeyRange.only(value)));
+            }),
+        [withStore],
+    );
 
-    const selectOne = async (criteria: { key: string, value: any }[]): Promise<T|undefined> => {
-        if(db === undefined) return Promise.resolve(undefined);
-        try {
-            const results: T[] = await selectAll(criteria);
-            //console.log("Result for : ", criteria, " -> ", results);
-            if(results.length === 0) return Promise.resolve(undefined);
-            return Promise.resolve(results[0]);
-        } catch (e) {
-            console.error(e);
-        }
-        return Promise.resolve(undefined);
-    };
+    /** Lit les enregistrements d'un index donne. */
+    const getByIndex = useCallback(
+        async (indexName: string, value: any): Promise<T[]> =>
+            withStore('readonly', (store) => {
+                if (!store.indexNames.contains(indexName)) return Promise.resolve([] as T[]);
+                return promisify<T[]>(store.index(indexName).getAll(IDBKeyRange.only(value)));
+            }),
+        [withStore],
+    );
+
+    /**
+     * Valeurs distinctes d'un index, parcourues par curseur de cles.
+     * Ne charge aucun enregistrement : indispensable pour `bookpages`, dont les
+     * valeurs sont des images base64.
+     */
+    const distinctByIndex = useCallback(
+        async (indexName: string): Promise<string[]> =>
+            withStore('readonly', (store) => {
+                if (!store.indexNames.contains(indexName)) return Promise.resolve([] as string[]);
+
+                return new Promise<string[]>((resolve, reject) => {
+                    const values: string[] = [];
+                    const request = store.index(indexName).openKeyCursor(null, 'nextunique');
+                    request.onsuccess = () => {
+                        const cursor = request.result;
+                        if (!cursor) {
+                            resolve(values);
+                            return;
+                        }
+                        values.push(String(cursor.key));
+                        cursor.continue();
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }),
+        [withStore],
+    );
+
+    const selectAll = useCallback(
+        async (criteria: Criteria[]): Promise<T[]> => {
+            // On restreint d'abord par index quand c'est possible, puis on
+            // affine en memoire sur les criteres restants.
+            const indexed = criteria.find(({ key }) =>
+                (INDEXES[storeName] ?? []).some((index) => index.name === key),
+            );
+
+            const base = indexed ? await getByIndex(indexed.key, indexed.value) : await getAll();
+            return base.filter((item) =>
+                criteria.every((criterion) => (item as any)[criterion.key] === criterion.value),
+            );
+        },
+        [getAll, getByIndex, storeName],
+    );
+
+    const selectOne = useCallback(
+        async (criteria: Criteria[]): Promise<T | undefined> => (await selectAll(criteria))[0],
+        [selectAll],
+    );
 
     return {
+        db,
+        error,
+        datas,
+        setDatas,
         put,
+        putMany,
         get,
         getAll,
         deleteById,
-        datas,
-        putMany,
-        db,
         selectAll,
-        selectOne
+        selectOne,
+        countByIndex,
+        getByIndex,
+        distinctByIndex,
     };
-};
+}
 
 export default useIndexedDB;

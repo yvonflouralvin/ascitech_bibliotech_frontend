@@ -19,7 +19,11 @@ const slice = createSlice({
         setTokens: (state, action: PayloadAction<AuthentificationTokens>)=>{
             state.tokens = action.payload
         },
-        delTokens: state => state.tokens = undefined,
+        delTokens: (state) => {
+            // Corps explicite : un producteur Immer ne doit pas a la fois muter
+            // le brouillon et renvoyer une valeur.
+            state.tokens = undefined;
+        },
         setIsAuthenticated: (state, action: PayloadAction<boolean>)=>{
             state.isAuthenticated = action.payload
         },
@@ -30,7 +34,9 @@ const slice = createSlice({
 });
 
 
-export default {
+const authentificationReducer = {
     reducer: slice.reducer,
-    actions: slice.actions
-}
+    actions: slice.actions,
+};
+
+export default authentificationReducer;
