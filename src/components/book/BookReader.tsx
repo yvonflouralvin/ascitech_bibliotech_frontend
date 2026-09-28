@@ -147,7 +147,7 @@ export default function BookReader({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="reader-surface fixed inset-0 z-[70] flex flex-col"
+            className="reader-surface viewport-fill fixed inset-x-0 top-0 z-[70] flex flex-col"
             role="dialog"
             aria-modal="true"
             aria-label={`Lecture de ${book.title}`}
@@ -248,7 +248,7 @@ export default function BookReader({
                                         'select-none rounded-sm bg-white shadow-book',
                                         fitWidth
                                             ? 'w-full max-w-none rounded-none'
-                                            : 'max-h-[calc(100vh-9rem)] w-auto max-w-full object-contain',
+                                            : 'reader-page-fit w-auto max-w-full object-contain',
                                     )}
                                 />
                             )}

@@ -93,6 +93,29 @@
 }
 
 @layer components {
+    /*
+     * Hauteur du viewport reellement visible. Sur mobile, `100vh` (et donc
+     * `inset-0` / `bottom-0` en position fixe) inclut la zone masquee par les
+     * barres du navigateur : une barre d'action collee en bas se retrouve
+     * hors de l'ecran. `svh` mesure le viewport barres affichees ; les
+     * navigateurs qui l'ignorent conservent la declaration `vh` precedente.
+     */
+    .viewport-fill {
+        height: 100vh;
+        height: 100svh;
+    }
+
+    /* Page entiere dans le lecteur, barres du lecteur deduites. */
+    .reader-page-fit {
+        max-height: calc(100vh - 9rem);
+        max-height: calc(100svh - 9rem);
+    }
+
+    /* Marge basse respectant l'encoche / la barre gestuelle des telephones. */
+    .pb-safe {
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+
     /* Barre de defilement discrete mais saisissable (l'ancienne faisait 2px). */
     .scroll-area {
         scrollbar-width: thin;

@@ -105,7 +105,7 @@ export default function EpubReader({ book, onClose }: EpubReaderProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="reader-surface fixed inset-0 z-[70] flex flex-col items-center justify-center gap-4 px-8 text-center"
+                className="reader-surface viewport-fill fixed inset-x-0 top-0 z-[70] flex flex-col items-center justify-center gap-4 px-8 text-center"
             >
                 <AlertCircleIcon size={30} className="text-ink-subtle" />
                 <p className="text-[13px] text-ink-muted">
@@ -124,7 +124,7 @@ export default function EpubReader({ book, onClose }: EpubReaderProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-[70] flex flex-col bg-surface"
+            className="viewport-fill fixed inset-x-0 top-0 z-[70] flex flex-col bg-surface"
             role="dialog"
             aria-modal="true"
             aria-label={`Lecture de ${book.title}`}

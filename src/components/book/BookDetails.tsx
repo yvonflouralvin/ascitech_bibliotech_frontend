@@ -99,6 +99,17 @@ export default function BookDetails({
         };
     }, [book.id, epub, countDownloadedPages, getAvailability]);
 
+    // Empeche le defilement de l'arriere-plan tant que la fiche est ouverte :
+    // sur mobile, ce defilement fait apparaitre/disparaitre les barres du
+    // navigateur et decale la barre d'actions.
+    useEffect(() => {
+        const previous = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previous;
+        };
+    }, []);
+
     // Fermeture au clavier.
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -181,200 +192,208 @@ export default function BookDetails({
                 aria-hidden
             />
 
-            <motion.div
-                role="dialog"
-                aria-modal="true"
-                aria-label={book.title}
-                initial={{ opacity: 0, y: 40, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 30, scale: 0.97 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className={cn(
-                    'fixed inset-x-0 bottom-0 z-[60] mx-auto flex max-h-[92vh] w-full flex-col',
-                    'overflow-hidden rounded-t-3xl border border-line bg-surface shadow-overlay',
-                    'sm:inset-y-auto sm:top-1/2 sm:max-w-2xl sm:-translate-y-1/2 sm:rounded-3xl',
-                )}
-            >
-                {/* Poignée de glissement, sur mobile. */}
-                <div className="flex justify-center pt-2.5 sm:hidden">
-                    <span className="h-1 w-10 rounded-full bg-line" />
-                </div>
-
-                <header className="flex items-center gap-3 px-5 py-3">
-                    <IconButton label="Fermer" variant="ghost" onClick={onClose} className="sm:hidden">
-                        <ArrowLeftIcon size={18} />
-                    </IconButton>
-                    <p className="flex-1 text-[13px] font-medium text-ink-muted">Détail du livre</p>
-                    <IconButton label="Fermer" variant="ghost" onClick={onClose} className="hidden sm:flex">
-                        <XIcon size={18} />
-                    </IconButton>
-                </header>
-
-                <div className="scroll-area flex-1 overflow-y-auto px-5 pb-6">
-                    <div className="flex flex-col gap-5 sm:flex-row sm:gap-6">
-                        <motion.div
-                            initial={{ opacity: 0, y: 14 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                            className="mx-auto w-40 shrink-0 overflow-hidden rounded-xl shadow-lifted sm:mx-0 sm:w-44"
-                        >
-                            <div className="aspect-[3/4] w-full">
-                                <BookCover book={book} getCover={getCover} width={COVER_DETAIL_WIDTH} eager />
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 14 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.12, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                            className="min-w-0 flex-1"
-                        >
-                            <h2 className="text-balance text-xl font-semibold leading-tight text-ink">
-                                {book.title}
-                            </h2>
-                            {book.author && (
-                                <p className="mt-1 text-[13px] text-ink-muted">{book.author}</p>
-                            )}
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                {meta.map((item) => (
-                                    <span
-                                        key={item.label}
-                                        className={cn(
-                                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                                            item.highlight
-                                                ? 'bg-success-soft text-success'
-                                                : 'bg-surface-muted text-ink-muted',
-                                        )}
-                                    >
-                                        {item.icon}
-                                        {item.label}
-                                    </span>
-                                ))}
-                            </div>
-
-                            {book.description && (
-                                <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
-                                    {book.description}
-                                </p>
-                            )}
-
-                            {hasNoContent && (
-                                <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-accent-soft px-3.5 py-3 text-[12px] text-accent">
-                                    <CloudOffIcon size={15} className="mt-0.5 shrink-0" />
-                                    <p>
-                                        Les pages de ce livre ne sont pas encore disponibles sur le
-                                        serveur. La couverture affichée est générée automatiquement.
-                                    </p>
-                                </div>
-                            )}
-
-                            <AnimatePresence>
-                                {feedback && (
-                                    <motion.p
-                                        initial={{ opacity: 0, y: -6 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0 }}
-                                        className="mt-3 text-[12px] text-ink-muted"
-                                    >
-                                        {feedback}
-                                    </motion.p>
-                                )}
-                            </AnimatePresence>
-                        </motion.div>
-                    </div>
-                </div>
-
-                <motion.footer
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.18, duration: 0.35 }}
-                    className="border-t border-line bg-surface-raised px-5 py-4"
+            {/*
+             * Le conteneur est ancre en haut et mesure le viewport visible
+             * (`viewport-fill`) au lieu d'etre colle a `bottom-0` : la barre
+             * d'actions reste ainsi a l'ecran meme lorsque le navigateur
+             * mobile affiche sa propre barre d'outils en bas.
+             */}
+            <div className="viewport-fill pointer-events-none fixed inset-x-0 top-0 z-[60] flex items-end justify-center sm:items-center">
+                <motion.div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={book.title}
+                    initial={{ opacity: 0, y: 40, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 30, scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className={cn(
+                        'pointer-events-auto flex max-h-full w-full flex-col',
+                        'overflow-hidden rounded-t-3xl border border-line bg-surface shadow-overlay',
+                        'sm:max-h-[92%] sm:max-w-2xl sm:rounded-3xl',
+                    )}
                 >
-                    {isDownloading ? (
-                        <div className="space-y-2.5">
-                            <div className="flex items-center justify-between text-[12px] text-ink-muted">
-                                <span>Téléchargement en cours…</span>
-                                <span className="font-semibold tabular-nums text-ink">
-                                    {downloadProgress}%
-                                </span>
-                            </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
-                                <motion.div
-                                    className="h-full rounded-full bg-primary"
-                                    animate={{ width: `${downloadProgress}%` }}
-                                    transition={{ ease: 'linear', duration: 0.25 }}
-                                />
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                block
-                                onClick={() => {
-                                    cancelRef.current = true;
-                                }}
+                    {/* Poignée de glissement, sur mobile. */}
+                    <div className="flex justify-center pt-2.5 sm:hidden">
+                        <span className="h-1 w-10 rounded-full bg-line" />
+                    </div>
+
+                    <header className="flex items-center gap-3 px-5 py-3">
+                        <IconButton label="Fermer" variant="ghost" onClick={onClose} className="sm:hidden">
+                            <ArrowLeftIcon size={18} />
+                        </IconButton>
+                        <p className="flex-1 text-[13px] font-medium text-ink-muted">Détail du livre</p>
+                        <IconButton label="Fermer" variant="ghost" onClick={onClose} className="hidden sm:flex">
+                            <XIcon size={18} />
+                        </IconButton>
+                    </header>
+
+                    <div className="scroll-area min-h-0 flex-1 overflow-y-auto px-5 pb-6">
+                        <div className="flex flex-col gap-5 sm:flex-row sm:gap-6">
+                            <motion.div
+                                initial={{ opacity: 0, y: 14 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                className="mx-auto w-40 shrink-0 overflow-hidden rounded-xl shadow-lifted sm:mx-0 sm:w-44"
                             >
-                                Annuler
-                            </Button>
+                                <div className="aspect-[3/4] w-full">
+                                    <BookCover book={book} getCover={getCover} width={COVER_DETAIL_WIDTH} eager />
+                                </div>
+                            </motion.div>
+
+                            <motion.div
+                                initial={{ opacity: 0, y: 14 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.12, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                className="min-w-0 flex-1"
+                            >
+                                <h2 className="text-balance text-xl font-semibold leading-tight text-ink">
+                                    {book.title}
+                                </h2>
+                                {book.author && (
+                                    <p className="mt-1 text-[13px] text-ink-muted">{book.author}</p>
+                                )}
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {meta.map((item) => (
+                                        <span
+                                            key={item.label}
+                                            className={cn(
+                                                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                                                item.highlight
+                                                    ? 'bg-success-soft text-success'
+                                                    : 'bg-surface-muted text-ink-muted',
+                                            )}
+                                        >
+                                            {item.icon}
+                                            {item.label}
+                                        </span>
+                                    ))}
+                                </div>
+
+                                {book.description && (
+                                    <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
+                                        {book.description}
+                                    </p>
+                                )}
+
+                                {hasNoContent && (
+                                    <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-accent-soft px-3.5 py-3 text-[12px] text-accent">
+                                        <CloudOffIcon size={15} className="mt-0.5 shrink-0" />
+                                        <p>
+                                            Les pages de ce livre ne sont pas encore disponibles sur le
+                                            serveur. La couverture affichée est générée automatiquement.
+                                        </p>
+                                    </div>
+                                )}
+
+                                <AnimatePresence>
+                                    {feedback && (
+                                        <motion.p
+                                            initial={{ opacity: 0, y: -6 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0 }}
+                                            className="mt-3 text-[12px] text-ink-muted"
+                                        >
+                                            {feedback}
+                                        </motion.p>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
                         </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <Button
-                                size="md"
-                                className="flex-1"
-                                disabled={hasNoContent}
-                                icon={<BookOpenIcon size={16} />}
-                                onClick={() => setIsReading(true)}
-                            >
-                                Lire le livre
-                            </Button>
+                    </div>
 
-                            {/* Le telechargement page par page ne concerne pas les EPUB. */}
-                            {!epub && !isComplete && !hasNoContent && (
+                    <motion.footer
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.18, duration: 0.35 }}
+                        className="border-t border-line bg-surface-raised px-5 pt-4 pb-safe"
+                    >
+                        {isDownloading ? (
+                            <div className="space-y-2.5">
+                                <div className="flex items-center justify-between text-[12px] text-ink-muted">
+                                    <span>Téléchargement en cours…</span>
+                                    <span className="font-semibold tabular-nums text-ink">
+                                        {downloadProgress}%
+                                    </span>
+                                </div>
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+                                    <motion.div
+                                        className="h-full rounded-full bg-primary"
+                                        animate={{ width: `${downloadProgress}%` }}
+                                        transition={{ ease: 'linear', duration: 0.25 }}
+                                    />
+                                </div>
                                 <Button
-                                    variant="secondary"
-                                    size="md"
-                                    icon={<DownloadIcon size={16} />}
-                                    onClick={handleDownload}
+                                    variant="ghost"
+                                    size="sm"
+                                    block
+                                    onClick={() => {
+                                        cancelRef.current = true;
+                                    }}
                                 >
-                                    <span className="hidden sm:inline">Télécharger</span>
+                                    Annuler
                                 </Button>
-                            )}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="md"
+                                    className="flex-1"
+                                    disabled={hasNoContent}
+                                    icon={<BookOpenIcon size={16} />}
+                                    onClick={() => setIsReading(true)}
+                                >
+                                    Lire le livre
+                                </Button>
 
-                            {downloaded > 0 && (
+                                {/* Le telechargement page par page ne concerne pas les EPUB. */}
+                                {!epub && !isComplete && !hasNoContent && (
+                                    <Button
+                                        variant="secondary"
+                                        size="md"
+                                        icon={<DownloadIcon size={16} />}
+                                        onClick={handleDownload}
+                                    >
+                                        <span className="hidden sm:inline">Télécharger</span>
+                                    </Button>
+                                )}
+
+                                {downloaded > 0 && (
+                                    <IconButton
+                                        label="Supprimer les pages hors ligne"
+                                        variant="surface"
+                                        size={44}
+                                        onClick={handleRemoveDownload}
+                                    >
+                                        <Trash2Icon size={17} />
+                                    </IconButton>
+                                )}
+
                                 <IconButton
-                                    label="Supprimer les pages hors ligne"
+                                    label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                                     variant="surface"
                                     size={44}
-                                    onClick={handleRemoveDownload}
+                                    onClick={() => onToggleFavorite(book)}
                                 >
-                                    <Trash2Icon size={17} />
+                                    <motion.span
+                                        key={String(isFavorite)}
+                                        initial={{ scale: 0.6 }}
+                                        animate={{ scale: 1 }}
+                                        transition={{ type: 'spring', stiffness: 520, damping: 18 }}
+                                        className="flex"
+                                    >
+                                        <HeartIcon
+                                            size={17}
+                                            className={isFavorite ? 'fill-red-500 text-red-500' : ''}
+                                        />
+                                    </motion.span>
                                 </IconButton>
-                            )}
-
-                            <IconButton
-                                label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                                variant="surface"
-                                size={44}
-                                onClick={() => onToggleFavorite(book)}
-                            >
-                                <motion.span
-                                    key={String(isFavorite)}
-                                    initial={{ scale: 0.6 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ type: 'spring', stiffness: 520, damping: 18 }}
-                                    className="flex"
-                                >
-                                    <HeartIcon
-                                        size={17}
-                                        className={isFavorite ? 'fill-red-500 text-red-500' : ''}
-                                    />
-                                </motion.span>
-                            </IconButton>
-                        </div>
-                    )}
-                </motion.footer>
-            </motion.div>
+                            </div>
+                        )}
+                    </motion.footer>
+                </motion.div>
+            </div>
 
             <AnimatePresence>
                 {isReading &&
