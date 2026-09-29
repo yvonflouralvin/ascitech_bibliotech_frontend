@@ -10,6 +10,7 @@ import {
     LibraryIcon,
     LogOutIcon,
     MenuIcon,
+    TagsIcon,
     WifiOffIcon,
     XIcon,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
     { href: '/', label: 'Catalogue', icon: <LibraryIcon size={17} /> },
+    { href: '/categories', label: 'Catégories', icon: <TagsIcon size={17} /> },
     { href: '/favorites', label: 'Favoris', icon: <HeartIcon size={17} /> },
     { href: '/offline', label: 'Hors ligne', icon: <DownloadCloudIcon size={17} /> },
 ];
@@ -54,7 +56,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     return (
         <nav className="flex flex-col gap-1">
             {NAV_ITEMS.map((item) => {
-                const active = pathname === item.href;
+                // `/categories/<slug>` reste sous l'entree « Categories ».
+                const active =
+                    pathname === item.href ||
+                    (item.href !== '/' && pathname.startsWith(`${item.href}/`));
                 return (
                     <Link
                         key={item.href}
