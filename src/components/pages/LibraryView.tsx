@@ -3,11 +3,18 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { DownloadCloudIcon, HeartIcon, LibraryIcon, RefreshCwIcon, WifiOffIcon } from 'lucide-react';
+import {
+    DownloadCloudIcon,
+    HeartIcon,
+    LibraryIcon,
+    RefreshCwIcon,
+    TagsIcon,
+    WifiOffIcon,
+} from 'lucide-react';
 
 import AllBookList from '@/components/book/AllBookList';
 import BookDetails from '@/components/book/BookDetails';
-import BookFilters, { BookScope, BookSort } from '@/components/book/BookFilters';
+import BookFilters, { BookScope, BookSort, CategoryFilter } from '@/components/book/BookFilters';
 import AppShell from '@/components/layout/AppShell';
 import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
@@ -17,7 +24,7 @@ import useBook from '@/lib/hooks/useBook';
 import useBookPage from '@/lib/hooks/useBookPage';
 import useDownloads from '@/lib/hooks/useDownloads';
 import useFavori from '@/lib/hooks/useFavori';
-import { Book } from '@/lib/hooks/useBook/type';
+import { Book, BookCategory, compareCategories } from '@/lib/hooks/useBook/type';
 
 /** Normalisation pour une recherche insensible aux accents et a la casse. */
 const normalize = (value: string) =>
@@ -47,6 +54,7 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
     const [search, setSearch] = useState('');
     const [scope, setScope] = useState<BookScope>(initialScope);
     const [sort, setSort] = useState<BookSort>('title');
+    const [category, setCategory] = useState<string | undefined>(undefined);
     const [selected, setSelected] = useState<Book | undefined>(undefined);
 
     /** Catalogue complete par les favoris, pour rester consultable hors ligne. */
@@ -67,7 +75,12 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
         [catalogue, favorites.length, downloads],
     );
 
-    const visibleBooks = useMemo(() => {
+    /**
+     * Livres retenus par la portee et la recherche, categorie mise a part :
+     * c'est sur cette base que sont comptees les puces de domaines, pour que
+     * le compteur annonce exactement ce qu'un clic affichera.
+     */
+    const scopedBooks = useMemo(() => {
         let list = catalogue;
 
         if (scope === 'favorites') list = list.filter((book) => isFavorite(book.id));
@@ -81,12 +94,55 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
             });
         }
 
+        return list;
+    }, [catalogue, scope, search, isFavorite, downloads]);
+
+    /**
+     * Domaines presents dans la selection courante. La liste est deduite des
+     * livres eux-memes : elle reste juste hors ligne, et aucun rayon vide
+     * n'est propose. Le domaine actif est conserve meme si son compteur
+     * tombe a zero, sans quoi la puce disparaitrait sous le doigt.
+     */
+    const categories = useMemo<CategoryFilter[]>(() => {
+        const known = new Map<string, BookCategory>();
+        const tally = new Map<string, number>();
+
+        scopedBooks.forEach((book) => {
+            book.categories?.forEach((item) => {
+                known.set(item.slug, item);
+                tally.set(item.slug, (tally.get(item.slug) ?? 0) + 1);
+            });
+        });
+
+        if (category && !known.has(category)) {
+            const active = catalogue
+                .flatMap((book) => book.categories ?? [])
+                .find((item) => item.slug === category);
+            if (active) known.set(active.slug, active);
+        }
+
+        return Array.from(known.values())
+            .sort(compareCategories)
+            .map((item) => ({
+                slug: item.slug,
+                name: item.name,
+                count: tally.get(item.slug) ?? 0,
+            }));
+    }, [scopedBooks, catalogue, category]);
+
+    const visibleBooks = useMemo(() => {
+        const list = category
+            ? scopedBooks.filter((book) =>
+                  book.categories?.some((item) => item.slug === category),
+              )
+            : scopedBooks;
+
         return [...list].sort((a, b) =>
             sort === 'title'
                 ? a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' })
                 : new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
-    }, [catalogue, scope, search, sort, isFavorite, downloads]);
+    }, [scopedBooks, category, sort]);
 
     const handleLogout = useCallback(async () => {
         await logout();
@@ -95,6 +151,26 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
 
     const emptyState = useMemo(() => {
         if (search.trim()) return undefined;
+
+        if (category) {
+            const name = categories.find((item) => item.slug === category)?.name;
+            return (
+                <EmptyState
+                    icon={<TagsIcon size={24} />}
+                    title="Aucun livre dans ce domaine"
+                    description={
+                        name
+                            ? `Rien n’est encore classé dans « ${name} » pour votre classe.`
+                            : 'Rien n’est encore classé dans ce domaine pour votre classe.'
+                    }
+                    action={
+                        <Button variant="secondary" size="sm" onClick={() => setCategory(undefined)}>
+                            Voir tous les domaines
+                        </Button>
+                    }
+                />
+            );
+        }
 
         if (scope === 'favorites') {
             return (
@@ -138,7 +214,7 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
                 }
             />
         );
-    }, [scope, search, reload]);
+    }, [scope, search, reload, category, categories]);
 
     const subtitle = isRefreshing
         ? 'Mise à jour du catalogue…'
@@ -157,15 +233,17 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
                             setSearchKeyWord={setSearch}
                             resultCount={visibleBooks.length}
                         />
-                        {!lockScope && (
-                            <BookFilters
-                                scope={scope}
-                                onScopeChange={setScope}
-                                sort={sort}
-                                onSortChange={setSort}
-                                counts={scopeCounts}
-                            />
-                        )}
+                        <BookFilters
+                            scope={scope}
+                            onScopeChange={setScope}
+                            sort={sort}
+                            onSortChange={setSort}
+                            counts={scopeCounts}
+                            categories={categories}
+                            category={category}
+                            onCategoryChange={setCategory}
+                            hideScopes={lockScope}
+                        />
                     </div>
                 }
             >

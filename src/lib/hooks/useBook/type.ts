@@ -1,6 +1,19 @@
 export type BookFormat = 'pdf' | 'epub' | 'audiobook' | 'paper' | string;
 export type PublishState = 'draft' | 'published' | 'archived' | string;
 
+/**
+ * Domaine thematique d'un livre. Plusieurs categories peuvent se cumuler :
+ * un manuel de robotique pedagogique releve autant de la technologie que
+ * des sciences.
+ */
+export interface BookCategory {
+    id: number;
+    name: string;
+    slug: string;
+    /** Rang d'affichage decide dans l'administration, plus fiable que l'alphabet. */
+    order: number;
+}
+
 /** Metadonnees d'un livre, telles que renvoyees par `GET /apps/books/`. */
 export interface Book {
     id: string;
@@ -18,6 +31,12 @@ export interface Book {
      * n'en ont pas.
      */
     book_file_path?: string | null;
+    /**
+     * Domaines thematiques. Optionnel : les livres mis en cache avant
+     * l'arrivee des categories n'ont pas le champ tant que le catalogue n'a
+     * pas ete rafraichi.
+     */
+    categories?: BookCategory[];
     created_at: string;
     updated_at: string;
 }
@@ -57,3 +76,7 @@ export interface BookAvailability {
     available_pages: number;
     has_content: boolean;
 }
+
+/** Tri d'affichage des categories : rang decide en administration, puis nom. */
+export const compareCategories = (a: BookCategory, b: BookCategory): number =>
+    a.order - b.order || a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });

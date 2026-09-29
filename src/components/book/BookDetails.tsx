@@ -11,13 +11,20 @@ import {
     FileTextIcon,
     HeartIcon,
     LayersIcon,
+    TagIcon,
     Trash2Icon,
     XIcon,
 } from 'lucide-react';
 
 import Button from '@/components/ui/Button';
 import IconButton from '@/components/ui/IconButton';
-import { Book, BookAvailability, BookPage, isEpub } from '@/lib/hooks/useBook/type';
+import {
+    Book,
+    BookAvailability,
+    BookPage,
+    compareCategories,
+    isEpub,
+} from '@/lib/hooks/useBook/type';
 import { COVER_DETAIL_WIDTH } from '@/lib/hooks/useBookPage';
 import cn from '@/lib/ui/cn';
 
@@ -178,6 +185,14 @@ export default function BookDetails({
         [book.book_format, book.page, epub, downloaded, isComplete, totalPages],
     );
 
+    // Les domaines sont distincts des metadonnees techniques : ils disent de
+    // quoi parle l'ouvrage, pas comment il se lit. Ils ont donc leur propre
+    // ligne, sous les pastilles de format.
+    const categories = useMemo(
+        () => [...(book.categories ?? [])].sort(compareCategories),
+        [book.categories],
+    );
+
     const isDownloading = downloadProgress !== undefined;
 
     return (
@@ -270,6 +285,20 @@ export default function BookDetails({
                                         </span>
                                     ))}
                                 </div>
+
+                                {categories.length > 0 && (
+                                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                                        <TagIcon size={13} className="text-ink-subtle" />
+                                        {categories.map((item) => (
+                                            <span
+                                                key={item.slug}
+                                                className="rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-medium text-primary"
+                                            >
+                                                {item.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
 
                                 {book.description && (
                                     <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
