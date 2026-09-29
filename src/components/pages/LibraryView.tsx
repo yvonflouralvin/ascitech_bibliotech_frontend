@@ -39,9 +39,19 @@ interface LibraryViewProps {
     title: string;
     /** Masque les puces de filtre (pages dediees). */
     lockScope?: boolean;
+    /** Domaine impose par la page `/categories/<slug>`. */
+    initialCategory?: string;
+    /** Masque les puces de domaines : le domaine vient de l'URL. */
+    lockCategory?: boolean;
 }
 
-export default function LibraryView({ initialScope = 'all', title, lockScope }: LibraryViewProps) {
+export default function LibraryView({
+    initialScope = 'all',
+    title,
+    lockScope,
+    initialCategory,
+    lockCategory,
+}: LibraryViewProps) {
     const router = useRouter();
     const { logout } = useAuthentification({ redirect: false });
 
@@ -58,13 +68,37 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
     const [selected, setSelected] = useState<Book | undefined>(undefined);
 
     /** Catalogue complete par les favoris, pour rester consultable hors ligne. */
-    const catalogue = useMemo(() => {
+    const fullCatalogue = useMemo(() => {
         const byId = new Map(books.map((book) => [book.id, book]));
         favorites.forEach((favorite) => {
             if (!byId.has(favorite.id)) byId.set(favorite.id, favorite);
         });
         return Array.from(byId.values());
     }, [books, favorites]);
+
+    /**
+     * Sur `/categories/<slug>`, le domaine vient de l'URL et borne tout le
+     * reste : portee, compteurs et recherche travaillent a l'interieur du
+     * rayon, sans quoi les puces annonceraient des effectifs qui n'ont pas
+     * cours sur la page.
+     */
+    const catalogue = useMemo(
+        () =>
+            lockCategory && initialCategory
+                ? fullCatalogue.filter((book) =>
+                      book.categories?.some((item) => item.slug === initialCategory),
+                  )
+                : fullCatalogue,
+        [fullCatalogue, lockCategory, initialCategory],
+    );
+
+    /** Nom du domaine impose : seule la fiche des livres le porte. */
+    const lockedCategoryName = useMemo(() => {
+        if (!lockCategory || !initialCategory) return undefined;
+        return fullCatalogue
+            .flatMap((book) => book.categories ?? [])
+            .find((item) => item.slug === initialCategory)?.name;
+    }, [fullCatalogue, lockCategory, initialCategory]);
 
     const scopeCounts = useMemo(
         () => ({
@@ -152,6 +186,21 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
     const emptyState = useMemo(() => {
         if (search.trim()) return undefined;
 
+        if (lockCategory) {
+            return (
+                <EmptyState
+                    icon={<TagsIcon size={24} />}
+                    title="Aucun livre dans ce domaine"
+                    description="Rien n’est encore classé ici pour votre classe."
+                    action={
+                        <Button variant="secondary" size="sm" onClick={() => router.push('/categories')}>
+                            Voir les autres domaines
+                        </Button>
+                    }
+                />
+            );
+        }
+
         if (category) {
             const name = categories.find((item) => item.slug === category)?.name;
             return (
@@ -214,7 +263,7 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
                 }
             />
         );
-    }, [scope, search, reload, category, categories]);
+    }, [scope, search, reload, category, categories, lockCategory, router]);
 
     const subtitle = isRefreshing
         ? 'Mise à jour du catalogue…'
@@ -223,7 +272,7 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
     return (
         <>
             <AppShell
-                title={title}
+                title={lockedCategoryName ?? title}
                 subtitle={subtitle}
                 onLogout={handleLogout}
                 toolbar={
@@ -239,7 +288,7 @@ export default function LibraryView({ initialScope = 'all', title, lockScope }: 
                             sort={sort}
                             onSortChange={setSort}
                             counts={scopeCounts}
-                            categories={categories}
+                            categories={lockCategory ? [] : categories}
                             category={category}
                             onCategoryChange={setCategory}
                             hideScopes={lockScope}
